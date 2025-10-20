@@ -1,0 +1,62 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+# VARIABLES
+BOX_IMAGE = "debian/bookworm64"
+PROVIDER = "virtualbox"
+NOM_MAQUINA_VIRTUAL = "pj9f4a7.1_jagani"
+NUM_CPUS = 2
+MEMORIA_RAM = 2048
+HOSTNAME = "pj9f4a7.1-jagani.fjeclot.net"
+CARPETA_MAQ_FIS = "../codis"
+CARPETA_MAQ_VIR = "/home/vagrant/codis"
+PORT_VIR1 = 80
+PORT_FIS1 = 8000
+PORT_VIR2 = 443
+PORT_FIS2 = 8443
+PROT = "tcp"
+# CONFIGURACIÓ DE LA MÀQUINA
+Vagrant.configure("2") do |config|
+# BOX
+config.vm.box = BOX_IMAGE
+ # CONFIGURACIÓ ESPECÍFICA DEL PROVIDER
+config.vm.provider PROVIDER do |provider|
+provider.name = NOM_MAQUINA_VIRTUAL
+provider.memory = MEMORIA_RAM
+provider.cpus = NUM_CPUS
+provider.customize ['modifyvm', :id, '--clipboard', 'bidirectional']
+end
+# CONFIGURACIÓ GENERAL
+config.vm.hostname = HOSTNAME
+config.vm.synced_folder CARPETA_MAQ_FIS,CARPETA_MAQ_VIR
+config.vm.network "forwarded_port", guest: PORT_VIR1, host: PORT_FIS1, protocol: PROT
+config.vm.network "forwarded_port", guest: PORT_VIR2, host: PORT_FIS2, protocol: PROT
+# PROGRAMARI A INSTAL·LAR I ORDRES A EXECUTAR DURANT LA CREACIÓ DE LA MÀQUINA
+config.vm.provision "shell", inline: <<-SHELL
+#
+# 1- Actualització de la llista de programari i instal·lació general
+#
+sudo apt-get update -y
+sudo apt-get install -y aptitude whois net-tools
+#
+# 2- Instal·lació de Docker i permisos per l'usuari vagrant
+#
+# 2.1- Paquets necessaris per poder instal·lar Docker
+sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+# 2.2- Clau GPG per verificar la signatura i integritat
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker.gpg
+# 2.3- Afegim el repositori oficial de Docker
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker.gpg] \
+https://download.docker.com/linux/debian $(lsb_release -cs) stable" | \
+sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# 2.4- Instal·lació de Docker
+sudo apt-get update -y
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+# 2.5- Afegim l'usuari vagrant al grup docker
+sudo gpasswd -a vagrant docker
+# 2.6- Activem i iniciem Docker
+sudo systemctl enable docker
+sudo systemctl start docker
+SHELL
+
+
+end
